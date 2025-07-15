@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+
+    <script src="src/lib/jquery.min.js"></script>
+    <script src="src/lib/jszip.min.js"></script>
+    <script src="src/lib/FileSaver.js"></script>
+    <script src="src/lib/jszip-utils.min.js"></script>
+    <script src="src/licznik-common.js"></script>
+    <script src="src/licznik-singleBlog.js"></script>
+    <script src="src/licznik-backup.js"></script>
+ 
+    <title>Backup bloga dobreprogramy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 30px auto;
+        }
+        input, button {
+            font-size: 1rem;
+            padding: 10px;
+            margin-top: 10px;
+            width: 100%;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-left: 5px solid #0074d9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Backup bloga z dobreprogramy</h1>
+    <label for="nick">Podaj nick blogera:</label>
+    <input type="text" id="nick" placeholder="np. wojtekadams">
+    <button onclick="runBackup()">Rozpocznij backup</button>
+
+    <div id="status">
+    <div class="licznik-singleBlogInfo">
+        <div class="licznik-singleStartCountingDiv">
+        Czekam na dane...
+        </div>
+    </div>
+    </div>
+
+    <script>
+        blogerName = "";
+        mainColor = "#0074d9"; // fallback
+        function SetInfo(txt) {
+            document.getElementById("status").innerText = txt;
+        }
+
+    function runBackup() {
+        blogerName = document.getElementById("nick").value.trim();
+        if (!blogerName) {
+            SetInfo("Podaj poprawny nick!");
+            return;
+        }
+        StartBackup(); 
+    }
+</script>
+</body>
+</html>
