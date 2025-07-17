@@ -2,7 +2,6 @@ var backupPostIds = [];
 var backupData = "";
 
 async function StartBackup() {
-
     mainColor = $("header").css("border-top-color");
     backupPostIds = [];
     backupData = "";
@@ -23,82 +22,72 @@ async function GetDataIdToBackup(linkToSearch, index, blogsCount) {
         dataType: "json"
     });
 
-    data.results.forEach(elem => {
+    for (const elem of data.results) {
         backupPostIds.push(elem.id);
         SetInfo("Odczytuje dane do backupu " + (++index) + "/" + blogsCount + "...");
-    });
+    }
 
     if (data.next) {
-        GetDataIdToBackup(FixHttpsUrl(data.next), index, blogsCount);
-    }
-    else {
-        var zip = new JSZip();
-        await BeginToBackup(zip, 0, blogsCount);
-    }
-}
-
-async function BeginToBackup(zip, index, blogsCount) {
-    
-    if ( backupPostIds.length > index) {
-        SetInfo("Backup wpisu " + (index + 1) + "/" + blogsCount + "...")
-        var data = await $.ajax({
-            type: "GET",
-            dataType: "json",
-            url: "https://www.dobreprogramy.pl/api/blogs/" + backupPostIds[index] + "/"
-        });
-
-        await BackupPostFull(data, zip, index, blogsCount);
-    }
-    else {
-        //pobranie
-        SetInfo("tworzenie pliku zip, czekaj...");
-        zip.generateAsync({ type: "blob" })
-            .then(function (content) {
-                saveAs(content, "backup_" + blogerName + "_" + new Date().toLocaleDateString() + ".zip");
-                SetInfo("backup gotowy!");
-            })
+        await GetDataIdToBackup(FixHttpsUrl(data.next), index, blogsCount);
+    } else {
+        for (let i = 0; i < backupPostIds.length; i++) {
+            await BackupPostSingle(backupPostIds[i], i + 1, backupPostIds.length);
+        }
+        SetInfo("Wszystkie wpisy zapisane.");
     }
 }
 
-async function BackupPostFull(data, zip, index, blogsCount) {
+async function BackupPostSingle(postId, index, blogsCount) {
+    SetInfo("Backup wpisu " + index + "/" + blogsCount + "...");
+
+    var data = await $.ajax({
+        type: "GET",
+        dataType: "json",
+        url: "https://www.dobreprogramy.pl/api/blogs/" + postId + "/"
+    });
+
+    let zip = new JSZip();
     let name = data.id + "_" + data.slug;
     let folder = zip.folder(name);
-    //headers
+
     folder.file(name + ".md", AddHeader(data));
-    //content
     folder.file(name + ".html", BlocskLoop(data));
-    //images
     await ImgDownloader(data, folder);
-    BeginToBackup(zip, index + 1, blogsCount);
+
+    SetInfo("Tworzenie ZIP dla wpisu " + index + "/" + blogsCount + "...");
+
+    await zip.generateAsync({ type: "blob" }).then(function (content) {
+        saveAs(content, "post_" + name + ".zip");
+    });
 }
 
 async function findAllType3Blocks(blocks) {
-  let result = [];
+    let result = [];
 
-  for (const block of blocks) {
-    if (block.type === 3) {
-      result.push(block);
+    for (const block of blocks) {
+        if (block.type === 3) {
+            result.push(block);
+        }
+        if (block.children && Array.isArray(block.children)) {
+            const childrenBlocks = await findAllType3Blocks(block.children);
+            result = result.concat(childrenBlocks);
+        }
     }
-    if (block.children && Array.isArray(block.children)) {
-      const childrenBlocks = await findAllType3Blocks(block.children);
-      result = result.concat(childrenBlocks);
-    }
-  }
 
-  return result;
+    return result;
 }
 
 async function ImgDownloader(data, folder) {
-  let items = await findAllType3Blocks(data.blocks);
-  if (items.length > 0) {
-    for (let img of items) {
-      if (img.image && img.image.file) {
-        const urlParts = img.image.file.split("/");
-        const fileName = urlParts[urlParts.length - 1];
-        folder.file(fileName, await UrlToPromiseToZip(img.image.file), { base64: true });
-      }
+    let items = await findAllType3Blocks(data.blocks);
+    if (items.length > 0) {
+        for (let img of items) {
+            if (img.image && img.image.file) {
+                const urlParts = img.image.file.split("/");
+                const fileName = urlParts[urlParts.length - 1];
+                folder.file(fileName, await UrlToPromiseToZip(img.image.file), { base64: true });
+            }
+        }
     }
-  }
 }
 
 function AddHeader(data) {
@@ -155,19 +144,19 @@ function BlockSwitcher(block) {
             return Block_15(block);
         case 16:
             return Block_16(block);
-
         default:
             console.log("LICZNIK BLOGOWY: unknown block type: " + block.type);
-            console.log(JSON.stringify(block))
+            console.log(JSON.stringify(block));
             return "";
     }
 }
 
 function Block_1(block) {
-    return cdom
-        .get("p")
-        .innerHTML(block.data.text)
-        .getHTML();
+    return cdom.get("p").innerHTML(block.data.text).getHTML();
+}
+
+function Block_2(block) {
+    return cdom.get("h" + block.data.level).innerHTML(block.data.text).getHTML();
 }
 
 function Block_3(block) {
@@ -177,14 +166,8 @@ function Block_3(block) {
             cdom
                 .get("img")
                 .attribute("alt", block.image.caption)
-                .attribute("src", block.image.file))
-        .getHTML();
-}
-
-function Block_2(block) {
-    return cdom
-        .get("h" + block.data.level)
-        .innerHTML(block.data.text)
+                .attribute("src", block.image.file)
+        )
         .getHTML();
 }
 
@@ -195,35 +178,25 @@ function Block_5(block) {
         .append(
             cdom
                 .get("small")
-                .innerHTML("<br />" + block.data.author))
+                .innerHTML("<br />" + block.data.author)
+        )
         .getHTML();
 }
 
-function Block_6(block) { 
+function Block_6(block) {
+    let list = block.data.style === "ordered" ? cdom.get("ol") : cdom.get("ul");
 
-    let list = cdom.get("ul");
-
-    if (block.data.style === "ordered") {
-         list = cdom.get("ol");
+    for (let item of block.data.items) {
+        list.append(cdom.get("li").innerHTML(item));
     }
 
-    for (let index = 0; index < block.data.items.length; index++) {
-        let item = block.data.items[index];
-        list.append(cdom
-            .get("li")
-            .innerHTML(item));
-    }
-    
     return list.getHTML();
 }
 
 function Block_7(block) {
     return cdom
         .get("p")
-        .append(
-            cdom
-                .get("samp")
-                .innerHTML(block.data.code))
+        .append(cdom.get("samp").innerHTML(block.data.code))
         .getHTML();
 }
 
@@ -237,32 +210,26 @@ function Block_9(block) {
 }
 
 function Block_14(block) {
-    let table = cdom
-        .get("table");
+    let table = cdom.get("table");
 
-    for (let index = 0; index < block.data.content.length; index++) {
-        let tr = cdom
-            .get("tr");
-        for (let index2 = 0; index2 < block.data.content[index].length; index2++) {
-            tr.append(cdom
-                .get("td")
-                .innerHTML(block.data.content[index][index2]));
+    for (let row of block.data.content) {
+        let tr = cdom.get("tr");
+        for (let cell of row) {
+            tr.append(cdom.get("td").innerHTML(cell));
         }
         table.append(tr);
     }
+
     return table.getHTML();
 }
 
 function Block_15(block) {
-    return cdom
-        .get("hr")
-        .getHTML();
+    return cdom.get("hr").getHTML();
 }
 
-function Block_16(block) { 
+function Block_16(block) {
     let innerHtml = "";
-    for (let index = 0; index < block.children.length; index++) {
-        let item = block.children[index];
+    for (let item of block.children) {
         innerHtml += BlockSwitcher(item);
     }
     return innerHtml;
