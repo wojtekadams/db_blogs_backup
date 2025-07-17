@@ -38,8 +38,8 @@ async function GetDataIdToBackup(linkToSearch, index, blogsCount) {
 }
 
 async function BeginToBackup(zip, index, blogsCount) {
-
-    if (backupPostIds.length > index) {
+    
+    if ( backupPostIds.length > index) {
         SetInfo("Backup wpisu " + (index + 1) + "/" + blogsCount + "...")
         var data = await $.ajax({
             type: "GET",
@@ -72,15 +72,33 @@ async function BackupPostFull(data, zip, index, blogsCount) {
     BeginToBackup(zip, index + 1, blogsCount);
 }
 
-async function ImgDownloader(data, folder) {
-    let items = data.blocks.filter(x => x.type == 3);
-    if (items) {
-        for (let index = 0; index < items.length; index++) {
-            let img = items[index];
-            let url = img.image.file.split("/");
-            folder.file(url[url.length - 1], await UrlToPromiseToZip(img.image.file), { base64: true });
-        }
+async function findAllType3Blocks(blocks) {
+  let result = [];
+
+  for (const block of blocks) {
+    if (block.type === 3) {
+      result.push(block);
     }
+    if (block.children && Array.isArray(block.children)) {
+      const childrenBlocks = await findAllType3Blocks(block.children);
+      result = result.concat(childrenBlocks);
+    }
+  }
+
+  return result;
+}
+
+async function ImgDownloader(data, folder) {
+  let items = await findAllType3Blocks(data.blocks);
+  if (items.length > 0) {
+    for (let img of items) {
+      if (img.image && img.image.file) {
+        const urlParts = img.image.file.split("/");
+        const fileName = urlParts[urlParts.length - 1];
+        folder.file(fileName, await UrlToPromiseToZip(img.image.file), { base64: true });
+      }
+    }
+  }
 }
 
 function AddHeader(data) {
@@ -133,6 +151,8 @@ function BlockSwitcher(block) {
             return Block_9(block);
         case 14:
             return Block_14(block);
+        case 15:
+            return Block_15(block);
         case 16:
             return Block_16(block);
 
@@ -172,20 +192,29 @@ function Block_5(block) {
     return cdom
         .get("blockquote")
         .innerHTML(block.data.text)
+        .append(
+            cdom
+                .get("small")
+                .innerHTML("<br />" + block.data.author))
         .getHTML();
 }
 
-function Block_6(block) {
-    let ul = cdom
-        .get("ul");
+function Block_6(block) { 
+
+    let list = cdom.get("ul");
+
+    if (block.data.style === "ordered") {
+         list = cdom.get("ol");
+    }
 
     for (let index = 0; index < block.data.items.length; index++) {
         let item = block.data.items[index];
-        ul.append(cdom
+        list.append(cdom
             .get("li")
             .innerHTML(item));
     }
-    ul.getHTML();
+    
+    return list.getHTML();
 }
 
 function Block_7(block) {
@@ -224,7 +253,13 @@ function Block_14(block) {
     return table.getHTML();
 }
 
-function Block_16(block) {
+function Block_15(block) {
+    return cdom
+        .get("hr")
+        .getHTML();
+}
+
+function Block_16(block) { 
     let innerHtml = "";
     for (let index = 0; index < block.children.length; index++) {
         let item = block.children[index];
