@@ -7,11 +7,40 @@ async function StartBackup() {
     backupData = "";
     SetInfo("rozpoczynam pracę...");
 
-    var data = await $.ajax({
-        type: "GET",
-        dataType: "json",
-        url: "https://www.dobreprogramy.pl/api/users/nick/" + blogerName + "/"
-    });
+    let data;
+    try {
+        data = await $.ajax({
+            type: "GET",
+            dataType: "json",
+            url: "https://www.dobreprogramy.pl/api/users/nick/" + blogerName + "/"
+        });
+    } catch (err) {
+        if (err.status === 404) {
+            console.warn("Nie znaleziono użytkownika w API, próbuję lokalnie...");
+
+            try {
+                const localData = await $.getJSON("users.json");
+
+                if (localData[blogerName]) {
+                    data = {
+                        id: localData[blogerName].id,
+                        blogs_count: localData[blogerName].blogs_count
+                    };
+                } else {
+                    SetInfo("Nie znaleziono użytkownika: " + blogerName + " w lokalnym pliku");
+                    return;
+                }
+
+            } catch (jsonErr) {
+                SetInfo("Błąd podczas wczytywania lokalnego pliku users.json");
+                return;
+            }
+
+        } else {
+            SetInfo("Błąd połączenia z API: " + err.statusText);
+            return;
+        }
+    }
 
     await GetDataIdToBackup(GetBaseUrl(0, data.id), 0, data.blogs_count);
 }
