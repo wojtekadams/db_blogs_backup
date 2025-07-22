@@ -1,3 +1,7 @@
-# ![ico](./src/ico/icon19.png) Fork of Licznik Blogowy by djFoxer
+# Dobry backup Bloga
+![logo](./img/logo.png) 
 
--->  https://wojtekadams.github.io/db_blogs_backup/
+Prosta strona, dzięki której można szybko zarchiwizować wpisy blooger z portalu dobreprogramy.pl
+Backup trochę trwa, więc trzeba być cierpliwym... Każdy blogowy wpis archiwizuje się do pojedynczego pliku zip.
+
+## Zapraszam na backup:  https://wojtekadams.github.io/db_blogs_backup/
