@@ -69,7 +69,7 @@ async function BackupPostSingle(postId, index, blogsCount) {
     });
 
     let zip = new JSZip();
-    let name = data.id + "_" + data.slug;
+    let name = data.id + "_" + blogerName + "_" + data.slug;
     let folder = zip.folder(name);
 
     folder.file(name + ".md", AddHeader(data));
